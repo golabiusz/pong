@@ -1,26 +1,28 @@
 package com.golabiusz.pong;
 
 import android.content.Context;
+import android.content.res.AssetFileDescriptor;
+import android.content.res.AssetManager;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.RectF;
+import android.media.SoundPool;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.SurfaceView;
+
+import java.io.IOException;
 
 class PongGame extends SurfaceView implements Runnable
 {
-    // Are we debugging?
     private final boolean DEBUGGING = true;
-    // Starting number of lives
     private final int DEFAULT_LIVES = 3;
-    // The number of milliseconds in a second
     private final int MILLIS_IN_SECOND = 1000;
 
-    // These objects are needed to do the drawing
     private Canvas canvas;
     private Paint paint;
 
-    // How many frames per second did we get?
     private long fps;
 
     private int screenWidth;
@@ -28,11 +30,9 @@ class PongGame extends SurfaceView implements Runnable
     private int fontSize;
     private int fontMargin;
 
-    // The game objects
-    private Bat bat;
     private Ball ball;
+    private Bat bat;
 
-    // The current score and lives remaining
     private int score;
     private int lives;
 
@@ -40,21 +40,27 @@ class PongGame extends SurfaceView implements Runnable
     private volatile boolean isPlaying;
     private boolean isPaused = true;
 
-    public PongGame(Context context, int x, int y)
+    private SoundPool sp;
+    private int beepID = -1;
+    private int boopID = -1;
+    private int bopID = -1;
+    private int missID = -1;
+
+    public PongGame(Context context, int screenWidth, int screenHeight)
     {
         super(context);
 
-        screenWidth = x;
-        screenHeight = y;
+        this.screenWidth = screenWidth;
+        this.screenHeight = screenHeight;
 
-        // Font is 5% (1/20th) of screen width
         fontSize = screenWidth / 20;
-        // Margin is 1.5% (1/75th) of screen width
         fontMargin = screenWidth / 75;
 
         paint = new Paint();
-        bat = new Bat();
-        ball = new Ball();
+        ball = new Ball(screenWidth);
+        bat = new Bat(screenWidth, screenHeight);
+
+        this.loadSounds(context);
 
         startNewGame();
     }
@@ -87,14 +93,10 @@ class PongGame extends SurfaceView implements Runnable
             long frameStartTime = System.currentTimeMillis();
 
             if (!isPaused) {
-                update();
-                // Now the bat and ball are in their new positions
-                // we can see if there have been any collisions
+                updateObjectsPosition();
                 detectCollisions();
             }
 
-            // The movement has been handled and collisions detected
-            // now we can draw the scene.
             draw();
 
             long timeThisFrame = System.currentTimeMillis() - frameStartTime;
@@ -104,48 +106,120 @@ class PongGame extends SurfaceView implements Runnable
         }
     }
 
-    private void update()
+    @Override
+    public boolean onTouchEvent(MotionEvent motionEvent)
     {
-        // Update the bat and the ball
+        switch (motionEvent.getAction() & MotionEvent.ACTION_MASK) {
+
+            case MotionEvent.ACTION_DOWN:
+                isPaused = false;
+
+                if (motionEvent.getX() > screenWidth / 2) {
+                    bat.setMovementState(bat.RIGHT);
+                } else {
+                    bat.setMovementState(bat.LEFT);
+                }
+
+                break;
+
+            // @todo: It is possible to create bugs by using multiple fingers.
+            case MotionEvent.ACTION_UP:
+                bat.setMovementState(bat.STOPPED);
+                break;
+        }
+
+        return true;
+    }
+
+    private void updateObjectsPosition()
+    {
+        ball.updatePosition(fps);
+        bat.updatePosition(fps);
     }
 
     private void detectCollisions()
     {
-        // Has the bat hit the ball?
+        if (RectF.intersects(bat.getRect(), ball.getRect())) {
+            ball.batBounce(bat.getRect());
+            ball.increaseVelocity();
+            score++;
+            sp.play(beepID, 1, 1, 0, 0, 1);
+        }
 
-        // Has the ball hit the edge of the screen
+        if (ball.getRect().bottom > screenHeight) {
+            ball.reverseYVelocity();
 
-        // Bottom
+            lives--;
+            sp.play(missID, 1, 1, 0, 0, 1);
 
-        // Top
+            if (lives == 0) {
+                isPaused = true;
+                startNewGame();
+            }
+        }
 
-        // Left
+        if (ball.getRect().top < 0) {
+            ball.reverseYVelocity();
+            sp.play(boopID, 1, 1, 0, 0, 1);
+        }
 
-        // Right
+        if (ball.getRect().left < 0) {
+            ball.reverseXVelocity();
+            sp.play(bopID, 1, 1, 0, 0, 1);
+        }
+
+        if (ball.getRect().right > screenWidth) {
+            ball.reverseXVelocity();
+            sp.play(bopID, 1, 1, 0, 0, 1);
+        }
+    }
+
+    private void loadSounds(Context context)
+    {
+        sp = new SoundPoolBuilder().build();
+
+        // Open each of the sound files in turn and load them into RAM ready to play
+        try {
+            AssetManager assetManager = context.getAssets();
+            AssetFileDescriptor descriptor;
+
+            descriptor = assetManager.openFd("beep.ogg");
+            beepID = sp.load(descriptor, 0);
+
+            descriptor = assetManager.openFd("boop.ogg");
+            boopID = sp.load(descriptor, 0);
+
+            descriptor = assetManager.openFd("bop.ogg");
+            bopID = sp.load(descriptor, 0);
+
+            descriptor = assetManager.openFd("miss.ogg");
+            missID = sp.load(descriptor, 0);
+        } catch (IOException e) {
+            Log.d("error", "failed to load sound files");
+        }
     }
 
     private void startNewGame()
     {
+        ball.reset(screenWidth, screenHeight);
+
         score = 0;
         lives = DEFAULT_LIVES;
     }
 
-    // Draw the game objects and the HUD
     private void draw()
     {
         if (getHolder().getSurface().isValid()) {
             // Lock the canvas (graphics memory) ready to draw
             canvas = getHolder().lockCanvas();
 
-            // Fill the screen with a solid color
             canvas.drawColor(Color.argb(255, 26, 128, 182));
 
-            // Choose a color to paint with
             paint.setColor(Color.argb(255, 255, 255, 255));
 
-            // Draw the bat and ball
+            canvas.drawRect(ball.getRect(), paint);
+            canvas.drawRect(bat.getRect(), paint);
 
-            // Choose the font size
             paint.setTextSize(fontSize);
 
             // Draw the HUD
@@ -156,7 +230,6 @@ class PongGame extends SurfaceView implements Runnable
             }
 
             // Display the drawing on screen
-            // unlockCanvasAndPost is a method of SurfaceView
             getHolder().unlockCanvasAndPost(canvas);
         }
     }
