@@ -134,7 +134,7 @@ class PongGame extends SurfaceView implements Runnable
     private void updateObjectsPosition()
     {
         ball.updatePosition(fps);
-        bat.updatePosition(fps);
+        bat.updatePosition(fps, screenWidth);
     }
 
     private void detectCollisions()
@@ -155,6 +155,8 @@ class PongGame extends SurfaceView implements Runnable
             if (lives == 0) {
                 isPaused = true;
                 startNewGame();
+
+                return;
             }
         }
 
@@ -202,6 +204,7 @@ class PongGame extends SurfaceView implements Runnable
     private void startNewGame()
     {
         ball.reset(screenWidth, screenHeight);
+        bat.reset(screenWidth, screenHeight);
 
         score = 0;
         lives = DEFAULT_LIVES;

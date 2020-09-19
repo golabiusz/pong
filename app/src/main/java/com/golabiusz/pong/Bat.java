@@ -8,7 +8,6 @@ class Bat
     private float length;
     private float height;
     private float speed;
-    private int screenWidth;
 
     final int STOPPED = 0;
     final int LEFT = 1;
@@ -18,17 +17,10 @@ class Bat
 
     Bat(int screenWidth, int screenHeight)
     {
-        this.screenWidth = screenWidth;
-
         length = screenWidth / 8;
         height = screenHeight / 40;
 
-        // Configure the starting location of the bat - the middle horizontally
-        float xCoord = screenWidth / 2 - length / 2;
-        rect = new RectF(xCoord, screenHeight - height, xCoord + length, screenHeight);
-
-        // Configure the speed of the bat - can cover the width of the screen in 1 second
-        speed = screenWidth;
+        rect = new RectF();
     }
 
     public RectF getRect()
@@ -36,12 +28,24 @@ class Bat
         return rect;
     }
 
+    public void reset(int screenWidth, int screenHeight)
+    {
+        // Configure the starting location of the bat - the middle horizontally, the bottom vertically
+        rect.left = screenWidth / 2 - length / 2;
+        rect.top = screenHeight - height;
+        rect.right = rect.left + length;
+        rect.bottom = screenHeight;
+
+        // Configure the speed of the bat - can cover the width of the screen in 1 second
+        speed = screenWidth;
+    }
+
     public void setMovementState(int state)
     {
         movementState = state;
     }
 
-    public void updatePosition(long fps)
+    public void updatePosition(long fps, int screenWidth)
     {
         float xCoord = rect.left;
 
