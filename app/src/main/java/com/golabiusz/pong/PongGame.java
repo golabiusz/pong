@@ -34,6 +34,7 @@ class PongGame extends SurfaceView implements Runnable
     private Bat bat;
 
     private int score;
+    private int bestScore;
     private int lives;
 
     private Thread gameThread = null;
@@ -122,7 +123,7 @@ class PongGame extends SurfaceView implements Runnable
 
                 break;
 
-            // @todo: It is possible to create bugs by using multiple fingers.
+            // TODO: It is possible to create bugs by using multiple fingers.
             case MotionEvent.ACTION_UP:
                 bat.setMovementState(bat.STOPPED);
                 break;
@@ -146,7 +147,7 @@ class PongGame extends SurfaceView implements Runnable
             sp.play(beepID, 1, 1, 0, 0, 1);
         }
 
-        if (ball.getRect().bottom > screenHeight) {
+        if (ball.getRect().bottom >= screenHeight) {
             ball.reverseYVelocity();
 
             lives--;
@@ -158,19 +159,15 @@ class PongGame extends SurfaceView implements Runnable
 
                 return;
             }
-        }
-
-        if (ball.getRect().top < 0) {
+        } else if (ball.getRect().top <= 0) {
             ball.reverseYVelocity();
             sp.play(boopID, 1, 1, 0, 0, 1);
         }
 
-        if (ball.getRect().left < 0) {
+        if (ball.getRect().left <= 0) {
             ball.reverseXVelocity();
             sp.play(bopID, 1, 1, 0, 0, 1);
-        }
-
-        if (ball.getRect().right > screenWidth) {
+        } else if (ball.getRect().right >= screenWidth) {
             ball.reverseXVelocity();
             sp.play(bopID, 1, 1, 0, 0, 1);
         }
@@ -206,6 +203,7 @@ class PongGame extends SurfaceView implements Runnable
         ball.reset(screenWidth, screenHeight);
         bat.reset(screenWidth, screenHeight);
 
+        bestScore = Math.max(bestScore, score);
         score = 0;
         lives = DEFAULT_LIVES;
     }
@@ -223,10 +221,7 @@ class PongGame extends SurfaceView implements Runnable
             canvas.drawRect(ball.getRect(), paint);
             canvas.drawRect(bat.getRect(), paint);
 
-            paint.setTextSize(fontSize);
-
-            // Draw the HUD
-            canvas.drawText("Score: " + score + "   Lives: " + lives, fontMargin, fontSize, paint);
+            drawHUD();
 
             if (DEBUGGING) {
                 printDebuggingText();
@@ -235,6 +230,19 @@ class PongGame extends SurfaceView implements Runnable
             // Display the drawing on screen
             getHolder().unlockCanvasAndPost(canvas);
         }
+    }
+
+    private void drawHUD()
+    {
+        paint.setColor(Color.argb(255, 0, 255, 0));
+        paint.setTextSize(fontSize);
+
+        canvas.drawText(
+            "Score: " + score + "   Lives: " + lives + "   Best score: " + bestScore,
+            fontMargin,
+            fontSize,
+            paint
+        );
     }
 
     private void printDebuggingText()

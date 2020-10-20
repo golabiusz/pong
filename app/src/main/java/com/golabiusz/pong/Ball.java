@@ -25,13 +25,15 @@ class Ball
 
     public void reset(int screenWidth, int screenHeight)
     {
-        rect.left = screenWidth / 2;
-        rect.top = 0;
-        rect.right = rect.left + width;
-        rect.bottom = height;
+        int topOffset = 1;
 
-        yVelocity = -(screenHeight / 3);
+        rect.left = screenWidth / 2;
+        rect.top = topOffset;
+        rect.right = rect.left + width;
+        rect.bottom = height + topOffset;
+
         xVelocity = (screenHeight / 3);
+        yVelocity = xVelocity;
     }
 
     public void updatePosition(long fps)
